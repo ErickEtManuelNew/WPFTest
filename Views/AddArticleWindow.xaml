@@ -1,0 +1,100 @@
+<Window x:Class="WPFTest.Views.AddArticleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:viewmodels="clr-namespace:WPFTest.ViewModels"
+        Title="Add New Article" 
+        Height="500" 
+        Width="400"
+        WindowStartupLocation="CenterOwner"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        FontFamily="{materialDesign:MaterialDesignFont}">
+
+    <Window.DataContext>
+        <viewmodels:AddArticleViewModel/>
+    </Window.DataContext>
+
+    <materialDesign:Card Margin="16" UniformCornerRadius="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <materialDesign:ColorZone Mode="PrimaryMid" 
+                                    Padding="16"
+                                    CornerRadius="8,8,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ShoppingBasket"
+                                           Height="24"
+                                           Width="24"
+                                           VerticalAlignment="Center"/>
+                    <TextBlock Text="Add New Article"
+                             Margin="16,0,0,0"
+                             VerticalAlignment="Center"
+                             Style="{StaticResource MaterialDesignHeadline6TextBlock}"/>
+                </StackPanel>
+            </materialDesign:ColorZone>
+
+            <StackPanel Grid.Row="1" 
+                      Margin="32,24">
+                <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         materialDesign:HintAssist.Hint="Title"
+                         Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,8"/>
+
+                <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         materialDesign:HintAssist.Hint="Description"
+                         Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="True"
+                         Height="80"
+                         Margin="0,8"/>
+
+                <ComboBox Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                         materialDesign:HintAssist.Hint="Category"
+                         ItemsSource="{Binding Categories}"
+                         SelectedItem="{Binding SelectedCategory}"
+                         DisplayMemberPath="Name"
+                         Margin="0,8"/>
+
+                <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         materialDesign:HintAssist.Hint="Price"
+                         Text="{Binding PriceText, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,8"/>
+
+                <TextBox Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         materialDesign:HintAssist.Hint="Stock"
+                         Text="{Binding StockText, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,8"/>
+
+                <TextBlock Text="{Binding ErrorMessage}"
+                         Foreground="Red"
+                         TextWrapping="Wrap"
+                         Margin="0,8"
+                         Visibility="{Binding ErrorMessage, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" 
+                      Orientation="Horizontal" 
+                      HorizontalAlignment="Right" 
+                      Margin="0,16,16,16">
+                <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Content="CANCEL"
+                        Click="CancelButton_Click"
+                        Margin="8,0"/>
+                <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                        Content="SAVE"
+                        Click="SaveButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </materialDesign:Card>
+</Window> 

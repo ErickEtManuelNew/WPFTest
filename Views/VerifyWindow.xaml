@@ -1,0 +1,59 @@
+<Window x:Class="WPFTest.Views.VerifyWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WPFTest.Views"
+        mc:Ignorable="d"
+        Title="Email Verification" 
+        Height="250" 
+        Width="400"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Email Verification"
+                   FontSize="24"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,20"/>
+
+        <TextBlock Grid.Row="1"
+                   Text="Please enter your verification code:"
+                   Margin="0,0,0,10"/>
+
+        <TextBox Grid.Row="2"
+                 Text="{Binding VerificationToken, UpdateSourceTrigger=PropertyChanged}"
+                 Height="30"
+                 Margin="0,0,0,10"/>
+
+        <TextBlock Grid.Row="3"
+                  Text="{Binding ErrorMessage}"
+                  Foreground="Red"
+                  TextWrapping="Wrap"
+                  VerticalAlignment="Center"/>
+
+        <StackPanel Grid.Row="4" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    Width="80"
+                    Height="30"
+                    Margin="0,0,10,0"/>
+            <Button Content="Verify"
+                    Command="{Binding VerifyCommand}"
+                    Width="80"
+                    Height="30"
+                    Background="#673AB7"
+                    Foreground="White"/>
+        </StackPanel>
+    </Grid>
+</Window> 
