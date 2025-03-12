@@ -6,14 +6,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using WPFTest.Models;
-using WPFTest.Services;
+using WPFTest.Repositories;
 using WPFTest.Views;
 
 namespace WPFTest.ViewModels
 {
     public partial class LoginViewModel : BaseViewModel
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IServiceProvider _serviceProvider;
 
         [ObservableProperty]
@@ -22,9 +22,9 @@ namespace WPFTest.ViewModels
         [ObservableProperty]
         private bool isLoading;
 
-        public LoginViewModel(IDatabaseService databaseService, IServiceProvider serviceProvider)
+        public LoginViewModel(IUnitOfWork unitOfWork, IServiceProvider serviceProvider)
         {
-            _databaseService = databaseService;
+            _unitOfWork = unitOfWork;
             _serviceProvider = serviceProvider;
         }
 
@@ -41,7 +41,7 @@ namespace WPFTest.ViewModels
             IsLoading = true;
             try
             {
-                var user = await _databaseService.AuthenticateAsync(Username, passwordBox.Password);
+                var user = await _unitOfWork.Users.AuthenticateAsync(Username, passwordBox.Password);
                 if (user != null)
                 {
                     if (!user.IsActive)

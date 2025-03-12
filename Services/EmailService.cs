@@ -9,7 +9,7 @@ namespace WPFTest.Services
         Task SendEmailAsync(string to, string subject, string body);
     }
 
-public class EmailService : IEmailService
+    public class EmailService : IEmailService
     {
         private readonly EmailSettings _emailSettings;
         private readonly bool _isProduction;

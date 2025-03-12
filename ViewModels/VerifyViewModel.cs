@@ -1,14 +1,15 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using WPFTest.Services;
+using WPFTest.Repositories;
 
 namespace WPFTest.ViewModels
 {
     public partial class VerifyViewModel : ObservableObject
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IUnitOfWork _unitOfWork;
 
         [ObservableProperty]
         private string? verificationToken;
@@ -16,9 +17,9 @@ namespace WPFTest.ViewModels
         [ObservableProperty]
         private string? errorMessage;
 
-        public VerifyViewModel(IDatabaseService databaseService, string? token = null)
+        public VerifyViewModel(IUnitOfWork unitOfWork, string? token = null)
         {
-            _databaseService = databaseService;
+            _unitOfWork = unitOfWork;
             VerificationToken = token;
 
             if (!string.IsNullOrEmpty(token))
@@ -40,10 +41,10 @@ namespace WPFTest.ViewModels
                     return;
                 }
 
-                var success = await _databaseService.VerifyUserAsync(VerificationToken.Trim());
-
+                var success = await _unitOfWork.Users.VerifyUserAsync(VerificationToken.Trim());
                 if (success)
                 {
+                    await _unitOfWork.SaveChangesAsync();
                     MessageBox.Show(
                         "Your email has been verified successfully! You can now log in.",
                         "Verification Success",

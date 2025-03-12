@@ -5,17 +5,17 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WPFTest.Models;
-using WPFTest.Services;
+using WPFTest.Repositories;
 
 namespace WPFTest.ViewModels
 {
     public partial class AddUserViewModel : ObservableObject
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public AddUserViewModel(IDatabaseService databaseService)
+        public AddUserViewModel(IUnitOfWork unitOfWork)
         {
-            _databaseService = databaseService;
+            _unitOfWork = unitOfWork;
         }
 
         [ObservableProperty]
@@ -56,14 +56,15 @@ namespace WPFTest.ViewModels
                 }
 
                 // Check if username already exists
-                if (await _databaseService.UsernameExistsAsync(Username))
+                var existingUser = await _unitOfWork.Users.FindAsync(u => u.Username == Username);
+                if (existingUser.Any())
                 {
                     ErrorMessage = "Username already exists";
                     return;
                 }
 
                 // Check if email already exists
-                if (await _databaseService.EmailExistsAsync(Email))
+                if (!await _unitOfWork.Users.IsEmailUniqueAsync(Email))
                 {
                     ErrorMessage = "Email already exists";
                     return;
@@ -79,16 +80,12 @@ namespace WPFTest.ViewModels
                     CreatedAt = DateTime.Now
                 };
 
-                if (await _databaseService.AddUserAsync(user))
-                {
-                    MessageBox.Show("User added successfully!", "Success", 
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                    CloseWindow(true);
-                }
-                else
-                {
-                    ErrorMessage = "Failed to add user";
-                }
+                await _unitOfWork.Users.AddAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+                
+                MessageBox.Show("User added successfully!", "Success", 
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                CloseWindow(true);
             }
             catch (Exception ex)
             {

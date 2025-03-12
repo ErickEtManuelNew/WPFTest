@@ -5,17 +5,15 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.EntityFrameworkCore;
-using WPFTest.Data;
 using WPFTest.Models;
-using WPFTest.Services;
+using WPFTest.Repositories;
 using WPFTest.Views;
 
 namespace WPFTest.ViewModels
 {
     public partial class ArticlesViewModel : BaseViewModel
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IUnitOfWork _unitOfWork;
         public ObservableCollection<Article> Articles { get; } = new ObservableCollection<Article>();
         public ObservableCollection<Category> Categories { get; } = new ObservableCollection<Category>();
 
@@ -25,9 +23,9 @@ namespace WPFTest.ViewModels
         [ObservableProperty]
         private string searchText = string.Empty;
 
-        public ArticlesViewModel(IDatabaseService databaseService, UserAccount? currentUser)
+        public ArticlesViewModel(IUnitOfWork unitOfWork, UserAccount? currentUser)
         {
-            _databaseService = databaseService;
+            _unitOfWork = unitOfWork;
             CurrentUser = currentUser;
             LoadDataAsync();
         }
@@ -36,7 +34,7 @@ namespace WPFTest.ViewModels
         {
             try
             {
-                var categories = await _databaseService.GetCategoriesByTypeAsync(CategoryType.Article);
+                var categories = await _unitOfWork.Categories.GetCategoriesByTypeAsync(CategoryType.Article);
                 Categories.Clear();
                 foreach (var category in categories)
                 {
@@ -54,7 +52,7 @@ namespace WPFTest.ViewModels
         {
             try
             {
-                var articles = await _databaseService.GetArticlesAsync(SelectedCategory?.Id, SearchText);
+                var articles = await _unitOfWork.Articles.GetFilteredArticlesAsync(SelectedCategory?.Id, SearchText);
                 Articles.Clear();
                 foreach (var article in articles)
                 {
@@ -117,15 +115,9 @@ namespace WPFTest.ViewModels
                     {
                         try
                         {
-                            if (await _databaseService.AddArticleAsync(article))
-                            {
-                                await LoadArticlesAsync(); // Refresh the list after adding
-                            }
-                            else
-                            {
-                                MessageBox.Show("Failed to add article to database", 
-                                    "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            }
+                            await _unitOfWork.Articles.AddAsync(article);
+                            await _unitOfWork.SaveChangesAsync();
+                            await LoadArticlesAsync(); // Refresh the list after adding
                         }
                         catch (Exception ex)
                         {

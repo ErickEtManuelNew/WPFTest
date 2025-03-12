@@ -5,18 +5,16 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using WPFTest.Data;
 using WPFTest.Models;
-using WPFTest.Services;
+using WPFTest.Repositories;
 using WPFTest.Views;
 
 namespace WPFTest.ViewModels
 {
     public partial class UsersViewModel : BaseViewModel
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IServiceProvider _serviceProvider;
         public ObservableCollection<UserAccount> Users { get; } = new();
 
@@ -31,9 +29,9 @@ namespace WPFTest.ViewModels
 
         public ObservableCollection<UserRole> AvailableRoles { get; } = new(Enum.GetValues<UserRole>());
 
-        public UsersViewModel(IDatabaseService databaseService, IServiceProvider serviceProvider, UserAccount? currentUser)
+        public UsersViewModel(IUnitOfWork unitOfWork, IServiceProvider serviceProvider, UserAccount? currentUser)
         {
-            _databaseService = databaseService;
+            _unitOfWork = unitOfWork;
             _serviceProvider = serviceProvider;
             CurrentUser = currentUser;
             LoadDataAsync();
@@ -43,7 +41,12 @@ namespace WPFTest.ViewModels
         {
             try
             {
-                var users = await _databaseService.GetUsersAsync(SelectedRole, SearchText);
+                var users = await _unitOfWork.Users.FindAsync(u => 
+                    (SelectedRole == null || u.Role == SelectedRole) &&
+                    (string.IsNullOrEmpty(SearchText) || 
+                     u.Email.Contains(SearchText) || 
+                     u.Username.Contains(SearchText)));
+
                 Users.Clear();
                 foreach (var user in users)
                 {
@@ -103,10 +106,14 @@ namespace WPFTest.ViewModels
 
             try
             {
-                var success = await _databaseService.ToggleUserStatusAsync(user.Id);
-                if (success)
+                var dbUser = await _unitOfWork.Users.GetByIdAsync(user.Id);
+                if (dbUser != null)
                 {
-                    user.IsActive = !user.IsActive; // Update the UI
+                    dbUser.IsActive = !dbUser.IsActive;
+                    _unitOfWork.Users.Update(dbUser);
+                    await _unitOfWork.SaveChangesAsync();
+                    
+                    user.IsActive = dbUser.IsActive; // Update the UI
                     MessageBox.Show($"User status updated successfully. User is now {(user.IsActive ? "active" : "inactive")}.", 
                         "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 }

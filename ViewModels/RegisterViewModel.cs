@@ -5,13 +5,14 @@ using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WPFTest.Models;
+using WPFTest.Repositories;
 using WPFTest.Services;
 
 namespace WPFTest.ViewModels
 {
     public partial class RegisterViewModel : ObservableObject
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IEmailService _emailService;
 
         [ObservableProperty]
@@ -23,9 +24,9 @@ namespace WPFTest.ViewModels
         [ObservableProperty]
         private string? errorMessage;
 
-        public RegisterViewModel(IDatabaseService databaseService, IEmailService emailService)
+        public RegisterViewModel(IUnitOfWork unitOfWork, IEmailService emailService)
         {
-            _databaseService = databaseService;
+            _unitOfWork = unitOfWork;
             _emailService = emailService;
         }
 
@@ -55,14 +56,15 @@ namespace WPFTest.ViewModels
                 }
 
                 // Check if username already exists
-                if (await _databaseService.UsernameExistsAsync(Username))
+                var existingUser = await _unitOfWork.Users.GetByUsernameAsync(Username);
+                if (existingUser != null)
                 {
                     ErrorMessage = "Username already exists";
                     return;
                 }
 
                 // Check if email already exists
-                if (await _databaseService.EmailExistsAsync(Email))
+                if (!await _unitOfWork.Users.IsEmailUniqueAsync(Email))
                 {
                     ErrorMessage = "Email already exists";
                     return;
@@ -83,38 +85,34 @@ namespace WPFTest.ViewModels
                     CreatedAt = DateTime.Now
                 };
 
-                // Save user to database
-                if (await _databaseService.AddUserAsync(user))
+                try
                 {
-                    try
-                    {
-                        // Send verification email
-                        await SendVerificationEmail(user.Email, verificationToken);
+                    // Save user to database
+                    await _unitOfWork.Users.AddAsync(user);
+                    await _unitOfWork.SaveChangesAsync();
 
-                        MessageBox.Show(
-                            "Registration successful! Please check your email to verify your account.",
-                            "Registration Success",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information
-                        );
+                    // Send verification email
+                    await SendVerificationEmail(user.Email, verificationToken);
 
-                        // Close the registration window
-                        CloseWindow();
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorMessage = $"Account created but failed to send verification email: {ex.Message}";
-                        MessageBox.Show(
-                            "Your account was created but we couldn't send the verification email. Please contact support.",
-                            "Email Error",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Warning
-                        );
-                    }
+                    MessageBox.Show(
+                        "Registration successful! Please check your email to verify your account.",
+                        "Registration Success",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
+
+                    // Close the registration window
+                    CloseWindow();
                 }
-                else
+                catch (Exception ex)
                 {
-                    ErrorMessage = "Failed to create account";
+                    ErrorMessage = $"Account created but failed to send verification email: {ex.Message}";
+                    MessageBox.Show(
+                        "Your account was created but we couldn't send the verification email. Please contact support.",
+                        "Email Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
                 }
             }
             catch (Exception ex)

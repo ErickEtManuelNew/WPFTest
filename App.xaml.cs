@@ -1,4 +1,5 @@
 using System;
+using System.Configuration;
 using System.IO;
 using System.Windows;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using WPFTest.Data;
 using WPFTest.Models;
+using WPFTest.Repositories;
 using WPFTest.Services;
 using WPFTest.ViewModels;
 using WPFTest.Views;
@@ -14,89 +16,24 @@ namespace WPFTest
 {
     public partial class App : Application
     {
-        private ServiceProvider _serviceProvider;
+        private IServiceProvider? _serviceProvider;
         private static IConfiguration? _configuration;
-        public static IConfiguration Configuration 
-        { 
+        public static IConfiguration Configuration
+        {
             get => _configuration ?? throw new InvalidOperationException("Configuration not initialized");
             private set => _configuration = value;
         }
 
-        public App()
-        {
-            // Configure services
-            var services = new ServiceCollection();
-            ConfigureServices(services);
-            _serviceProvider = services.BuildServiceProvider();
-        }
-
-        private void ConfigureServices(IServiceCollection services)
-        {
-            // Register DbContext and Factory
-            services.AddDbContextFactory<ApplicationDbContext>(options =>
-                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
-            services.AddSingleton<IDbContextFactory, DbContextFactory>();
-
-            // Register Services
-            services.AddSingleton<IDatabaseService, DatabaseService>();
-            // Créez une instance de EmailService avec les paramètres extraits
-            services.AddSingleton<IEmailService>(sp =>
-            {
-                // Extrayez les paramètres de configuration
-                var isProduction = Configuration.GetValue<bool>("IsProduction");
-                var emailSettings = isProduction
-                    ? Configuration.GetSection("Email:Gmail").Get<EmailSettings>()
-                    : Configuration.GetSection("Email:Mailtrap").Get<EmailSettings>();
-
-                // Vérifiez si emailSettings est null
-                if (emailSettings == null)
-                {
-                    throw new InvalidOperationException("Email settings not found in configuration.");
-                }
-
-                // Créez une instance de EmailService avec les paramètres extraits
-                return new EmailService(emailSettings, isProduction);
-            });
-
-            // Register ViewModels
-            services.AddTransient<LoginViewModel>(sp => 
-                new LoginViewModel(
-                    sp.GetRequiredService<IDatabaseService>(),
-                    sp));
-            services.AddTransient<RegisterViewModel>(sp => 
-                new RegisterViewModel(
-                    sp.GetRequiredService<IDatabaseService>(),
-                    sp.GetRequiredService<IEmailService>()));
-            services.AddTransient<VerifyViewModel>(sp => 
-                new VerifyViewModel(sp.GetRequiredService<IDatabaseService>()));
-            services.AddTransient<MainViewModel>();
-            services.AddTransient<UsersViewModel>(sp => 
-                new UsersViewModel(sp.GetRequiredService<IDatabaseService>(), sp, null));
-            services.AddTransient<UserAccount>();
-            services.AddTransient<ArticlesViewModel>();
-            services.AddTransient<AddUserViewModel>(sp => 
-                new AddUserViewModel(sp.GetRequiredService<IDatabaseService>()));
-            services.AddTransient<AddArticleViewModel>();
-
-            // Register Views
-            services.AddTransient<MainWindow>();
-            services.AddTransient<LoginWindow>();
-            services.AddTransient<RegisterWindow>();
-            services.AddTransient<VerifyWindow>();
-            services.AddTransient<AddUserWindow>();
-            services.AddTransient<AddArticleWindow>();
-        }
-
         protected override void OnStartup(StartupEventArgs e)
         {
-            // Déterminez l'environnement (par exemple, via une variable d'environnement ou un paramètre en ligne de commande)
-            var environment = "Development"; // Par défaut, utilisez "Development"
+            // Determine environment
+            var environment = "Development"; // Default to "Development"
             if (e.Args.Length > 0)
             {
-                environment = e.Args[0]; // Permet de passer l'environnement en ligne de commande
+                environment = e.Args[0];
             }
 
-            // Chargez la configuration en fonction de l'environnement
+            // Load configuration based on environment
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
@@ -104,38 +41,98 @@ namespace WPFTest
 
             Configuration = builder.Build();
 
-            // Vous pouvez maintenant accéder à la configuration dans toute l'application
-            var isProduction = Configuration.GetValue<bool>("IsProduction");
-            if (isProduction)
-            {
-                var gmailSettings = Configuration.GetSection("Email:Gmail").Get<EmailSettings>();
-                if (gmailSettings != null)
-                {
-                    MessageBox.Show($"Production: Gmail Username: {gmailSettings.Username}, Password: {gmailSettings.Password}");
-                }
-            }
-            else
-            {
-                var mailtrapSettings = Configuration.GetSection("Email:Mailtrap").Get<EmailSettings>();
-                if (mailtrapSettings != null)
-                {
-                    MessageBox.Show($"Development: Mailtrap Username: {mailtrapSettings.Username}, Password: {mailtrapSettings.Password}");
-                }
-            }
-
             base.OnStartup(e);
 
-            var loginWindow = _serviceProvider.GetRequiredService<LoginWindow>();
-            var loginViewModel = _serviceProvider.GetRequiredService<LoginViewModel>();
-            loginWindow.DataContext = loginViewModel;
-            loginWindow.Show();
-            MainWindow = loginWindow;
-        }
-    }
+            var services = new ServiceCollection();
+            ConfigureServices(services);
 
-    public class EmailSettings
-    {
-        public string? Username { get; set; }
-        public string? Password { get; set; }
+            _serviceProvider = services.BuildServiceProvider();
+
+            var loginWindow = _serviceProvider.GetRequiredService<LoginWindow>();
+            loginWindow.DataContext = _serviceProvider.GetRequiredService<LoginViewModel>();
+            loginWindow.Show();
+        }
+
+        private void ConfigureServices(IServiceCollection services)
+        {
+            // Configuration
+            services.AddSingleton<IConfiguration>(Configuration);
+
+            // Database context
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
+
+            // Email Settings
+            var isProduction = Configuration.GetValue<bool>("IsProduction");
+            var emailConfigSection = isProduction ? "Email:Gmail" : "Email:Mailtrap";
+            var emailSettings = Configuration.GetSection(emailConfigSection).Get<EmailSettings>() ?? new EmailSettings
+            {
+                Host = isProduction ? "smtp.gmail.com" : "smtp.mailtrap.io",
+                Port = isProduction ? 587 : 2525,
+                EnableSsl = true,
+                Username = Configuration.GetValue<string>($"{emailConfigSection}:Username") ?? "",
+                Password = Configuration.GetValue<string>($"{emailConfigSection}:Password") ?? ""
+            };
+            
+            services.AddSingleton(emailSettings);
+
+            // Repositories and Unit of Work
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IArticleRepository, ArticleRepository>();
+            services.AddScoped<ICategoryRepository, CategoryRepository>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            // Enregistrer EmailService avec une factory
+            services.AddTransient<IEmailService>(sp =>
+            {
+                var emailSettings = sp.GetRequiredService<EmailSettings>();
+                return new EmailService(emailSettings, isProduction);
+            });
+
+            // Windows
+            services.AddTransient<LoginWindow>();
+            services.AddTransient<RegisterWindow>();
+            services.AddTransient<VerifyWindow>();
+            services.AddTransient<MainWindow>();
+            services.AddTransient<AddArticleWindow>();
+            services.AddTransient<AddUserWindow>();
+
+            // ViewModels
+            services.AddTransient(sp => new LoginViewModel(
+                sp.GetRequiredService<IUnitOfWork>(),
+                sp));
+
+            services.AddTransient(sp => new RegisterViewModel(
+                sp.GetRequiredService<IUnitOfWork>(),
+                sp.GetRequiredService<IEmailService>()));
+
+            services.AddTransient(sp => new VerifyViewModel(
+                sp.GetRequiredService<IUnitOfWork>()));
+
+            services.AddTransient(sp => new MainViewModel(sp));
+
+            services.AddTransient(sp => new ArticlesViewModel(
+                sp.GetRequiredService<IUnitOfWork>(),
+                null));
+
+            services.AddTransient(sp => new UsersViewModel(
+                sp.GetRequiredService<IUnitOfWork>(),
+                sp,
+                null));
+
+            services.AddTransient(sp => new AddArticleViewModel());
+            services.AddTransient(sp => new AddUserViewModel(
+                sp.GetRequiredService<IUnitOfWork>()
+                ));
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            base.OnExit(e);
+            if (_serviceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
     }
 }
